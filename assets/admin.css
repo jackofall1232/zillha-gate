@@ -1,0 +1,10 @@
+/* Slug list table */
+.zsg-slug-list { margin-bottom: 20px; }
+.zsg-slug-list tr td { vertical-align: middle; padding: 6px 10px; }
+.zsg-slug-list code { font-size: 13px; background: #f0f0f1; padding: 2px 6px; border-radius: 3px; }
+
+/* Add slug form */
+.zsg-add-form input[type="text"] { width: 260px; }
+
+/* Section spacing */
+.zsg-section { margin-top: 30px; }
