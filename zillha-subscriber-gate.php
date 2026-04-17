@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Zillha Subscriber Gate
  * Plugin URI:  https://zillha.com
- * Description: Restrict WordPress pages by slug to subscribers or higher. Supports allowlist and blocklist modes from the admin panel.
- * Version:     1.1.0
+ * Description: Restrict WordPress pages by role and/or age verification. Supports allowlist, blocklist, and per-slug age gate modes.
+ * Version:     0.2.0
  * Author:      Joe (Zillha)
  * Author URI:  https://zillha.com
  * License:     GPL-2.0-or-later
@@ -18,11 +18,12 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'ZSG_VERSION', '1.1.0' );
+define( 'ZSG_VERSION', '0.2.0' );
 define( 'ZSG_PATH', plugin_dir_path( __FILE__ ) );
 define( 'ZSG_URL', plugin_dir_url( __FILE__ ) );
 
 require_once ZSG_PATH . 'includes/class-zsg-restrictor.php';
+require_once ZSG_PATH . 'includes/class-zsg-age-gate.php';
 require_once ZSG_PATH . 'includes/class-zsg-admin.php';
 
 /**
@@ -32,6 +33,7 @@ require_once ZSG_PATH . 'includes/class-zsg-admin.php';
  */
 function zsg_bootstrap() {
 	new ZSG_Restrictor();
+	new ZSG_Age_Gate();
 	new ZSG_Admin();
 }
 add_action( 'plugins_loaded', 'zsg_bootstrap' );

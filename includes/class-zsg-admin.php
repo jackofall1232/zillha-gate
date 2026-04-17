@@ -89,6 +89,10 @@ class ZSG_Admin {
 			? __( 'No exception slugs. In blocklist mode, all pages are gated except the safety slugs (login, register, subscribe, home).', 'zillha-subscriber-gate' )
 			: __( 'No slugs are currently restricted.', 'zillha-subscriber-gate' );
 		$action_url       = admin_url( 'admin-post.php' );
+
+		$age_enabled      = (bool) get_option( 'zsg_age_gate_enabled', false );
+		$age_slugs        = (array) get_option( 'zsg_age_gate_slugs', array() );
+		$age_redirect_url = (string) get_option( 'zsg_age_gate_redirect_url', home_url() );
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'Subscriber Gate', 'zillha-subscriber-gate' ); ?></h1>
@@ -218,6 +222,112 @@ class ZSG_Admin {
 					</p>
 				</form>
 			</div>
+
+			<hr />
+
+			<div class="zsg-section">
+				<h2><?php esc_html_e( 'Age Gate', 'zillha-subscriber-gate' ); ?></h2>
+				<p class="zsg-mode-help">
+					<?php esc_html_e( 'When enabled, visitors to the listed pages will see a date-of-birth verification modal on their first visit. Administrators and editors always bypass this check. A 1-year cookie is set on confirmation.', 'zillha-subscriber-gate' ); ?>
+				</p>
+
+				<form method="post" action="<?php echo esc_url( $action_url ); ?>">
+					<input type="hidden" name="action" value="zsg_age_gate_settings_save" />
+					<?php wp_nonce_field( 'zsg_age_gate_settings_nonce', 'zsg_age_gate_settings_nonce' ); ?>
+					<table class="form-table" role="presentation">
+						<tr>
+							<th scope="row">
+								<?php esc_html_e( 'Enable Age Gate', 'zillha-subscriber-gate' ); ?>
+							</th>
+							<td>
+								<label>
+									<input
+										type="checkbox"
+										name="zsg_age_gate_enabled"
+										value="1"
+										<?php checked( $age_enabled, true ); ?>
+									/>
+									<?php esc_html_e( 'Require date-of-birth verification on listed pages.', 'zillha-subscriber-gate' ); ?>
+								</label>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">
+								<label for="zsg_age_gate_redirect_url">
+									<?php esc_html_e( 'Redirect under-18 visitors to:', 'zillha-subscriber-gate' ); ?>
+								</label>
+							</th>
+							<td>
+								<input
+									type="url"
+									id="zsg_age_gate_redirect_url"
+									name="zsg_age_gate_redirect_url"
+									class="regular-text"
+									value="<?php echo esc_attr( $age_redirect_url ); ?>"
+								/>
+								<p class="description">
+									<?php esc_html_e( 'Visitors who decline or report being under 18 will be sent here.', 'zillha-subscriber-gate' ); ?>
+								</p>
+							</td>
+						</tr>
+					</table>
+					<p>
+						<button type="submit" class="button button-primary">
+							<?php esc_html_e( 'Save Age Gate Settings', 'zillha-subscriber-gate' ); ?>
+						</button>
+					</p>
+				</form>
+			</div>
+
+			<div class="zsg-section">
+				<h2><?php esc_html_e( 'Age-Gated Slugs', 'zillha-subscriber-gate' ); ?></h2>
+
+				<?php if ( empty( $age_slugs ) ) : ?>
+					<p><em><?php esc_html_e( 'No pages are currently age-gated.', 'zillha-subscriber-gate' ); ?></em></p>
+				<?php else : ?>
+					<table class="zsg-slug-list widefat striped">
+						<tbody>
+						<?php foreach ( $age_slugs as $age_slug ) : ?>
+							<tr>
+								<td><code><?php echo esc_html( $age_slug ); ?></code></td>
+								<td style="text-align:right;">
+									<form method="post" action="<?php echo esc_url( $action_url ); ?>" style="display:inline;">
+										<input type="hidden" name="action" value="zsg_remove_age_slug" />
+										<input type="hidden" name="slug" value="<?php echo esc_attr( $age_slug ); ?>" />
+										<?php wp_nonce_field( 'zsg_remove_age_slug_nonce', 'zsg_remove_age_slug_nonce' ); ?>
+										<button type="submit" class="button button-secondary">
+											<?php esc_html_e( 'Remove', 'zillha-subscriber-gate' ); ?>
+										</button>
+									</form>
+								</td>
+							</tr>
+						<?php endforeach; ?>
+						</tbody>
+					</table>
+				<?php endif; ?>
+
+				<form method="post" action="<?php echo esc_url( $action_url ); ?>" class="zsg-add-form">
+					<input type="hidden" name="action" value="zsg_add_age_slug" />
+					<?php wp_nonce_field( 'zsg_add_age_slug_nonce', 'zsg_add_age_slug_nonce' ); ?>
+					<input
+						type="text"
+						name="slug"
+						placeholder="<?php esc_attr_e( 'enter-page-slug', 'zillha-subscriber-gate' ); ?>"
+						required
+					/>
+					<button type="submit" class="button button-primary">
+						<?php esc_html_e( 'Add Age-Gated Slug', 'zillha-subscriber-gate' ); ?>
+					</button>
+					<p class="description">
+						<?php
+						echo wp_kses(
+							__( 'Pages listed here show a date-of-birth modal on first visit. Example: for <code>/worlds/darkwood/</code> enter <code>darkwood</code>.', 'zillha-subscriber-gate' ),
+							array( 'code' => array() )
+						);
+						?>
+					</p>
+				</form>
+			</div>
 		</div>
 		<?php
 	}
@@ -246,6 +356,15 @@ class ZSG_Admin {
 				break;
 			case 'zsg_mode_save':
 				$this->process_save_mode();
+				break;
+			case 'zsg_age_gate_settings_save':
+				$this->process_save_age_gate_settings();
+				break;
+			case 'zsg_add_age_slug':
+				$this->process_add_age_slug();
+				break;
+			case 'zsg_remove_age_slug':
+				$this->process_remove_age_slug();
 				break;
 			default:
 				return;
@@ -383,6 +502,114 @@ class ZSG_Admin {
 
 		update_option( 'zsg_redirect_url', $url );
 		$this->set_notice( __( 'Redirect URL saved.', 'zillha-subscriber-gate' ), 'success' );
+		$this->redirect_back();
+	}
+
+	/**
+	 * Save the age gate settings: enabled flag and under-18 redirect URL.
+	 *
+	 * @return void
+	 */
+	private function process_save_age_gate_settings() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Insufficient permissions.', 'zillha-subscriber-gate' ) );
+		}
+		if ( ! isset( $_POST['zsg_age_gate_settings_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['zsg_age_gate_settings_nonce'] ) ), 'zsg_age_gate_settings_nonce' ) ) {
+			wp_die( esc_html__( 'Security check failed.', 'zillha-subscriber-gate' ) );
+		}
+
+		$enabled = ! empty( $_POST['zsg_age_gate_enabled'] );
+		update_option( 'zsg_age_gate_enabled', $enabled );
+
+		$raw = isset( $_POST['zsg_age_gate_redirect_url'] ) ? wp_unslash( $_POST['zsg_age_gate_redirect_url'] ) : '';
+		$url = esc_url_raw( trim( $raw ) );
+		if ( '' === $url ) {
+			$url = home_url();
+		}
+		update_option( 'zsg_age_gate_redirect_url', $url );
+
+		$this->set_notice( __( 'Age gate settings saved.', 'zillha-subscriber-gate' ), 'success' );
+		$this->redirect_back();
+	}
+
+	/**
+	 * Add a slug to the age-gated list.
+	 *
+	 * @return void
+	 */
+	private function process_add_age_slug() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Insufficient permissions.', 'zillha-subscriber-gate' ) );
+		}
+		if ( ! isset( $_POST['zsg_add_age_slug_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['zsg_add_age_slug_nonce'] ) ), 'zsg_add_age_slug_nonce' ) ) {
+			wp_die( esc_html__( 'Security check failed.', 'zillha-subscriber-gate' ) );
+		}
+
+		$raw  = isset( $_POST['slug'] ) ? wp_unslash( $_POST['slug'] ) : '';
+		$slug = sanitize_title( $raw );
+
+		if ( '' === $slug ) {
+			$this->set_notice( __( 'Please enter a valid slug.', 'zillha-subscriber-gate' ), 'error' );
+			$this->redirect_back();
+		}
+
+		$slugs = (array) get_option( 'zsg_age_gate_slugs', array() );
+		if ( in_array( $slug, $slugs, true ) ) {
+			// Silently reject duplicates per spec; show a neutral confirmation.
+			$this->set_notice(
+				/* translators: %s: slug name. */
+				sprintf( __( 'The slug "%s" is already age-gated.', 'zillha-subscriber-gate' ), $slug ),
+				'success'
+			);
+			$this->redirect_back();
+		}
+
+		$slugs[] = $slug;
+		update_option( 'zsg_age_gate_slugs', array_values( $slugs ) );
+		$this->set_notice(
+			/* translators: %s: slug name. */
+			sprintf( __( 'Added "%s" to age-gated slugs.', 'zillha-subscriber-gate' ), $slug ),
+			'success'
+		);
+		$this->redirect_back();
+	}
+
+	/**
+	 * Remove a slug from the age-gated list.
+	 *
+	 * @return void
+	 */
+	private function process_remove_age_slug() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Insufficient permissions.', 'zillha-subscriber-gate' ) );
+		}
+		if ( ! isset( $_POST['zsg_remove_age_slug_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['zsg_remove_age_slug_nonce'] ) ), 'zsg_remove_age_slug_nonce' ) ) {
+			wp_die( esc_html__( 'Security check failed.', 'zillha-subscriber-gate' ) );
+		}
+
+		$raw    = isset( $_POST['slug'] ) ? wp_unslash( $_POST['slug'] ) : '';
+		$target = sanitize_title( $raw );
+
+		if ( '' === $target ) {
+			$this->set_notice( __( 'Invalid slug.', 'zillha-subscriber-gate' ), 'error' );
+			$this->redirect_back();
+		}
+
+		$slugs    = (array) get_option( 'zsg_age_gate_slugs', array() );
+		$filtered = array_values(
+			array_filter(
+				$slugs,
+				static function ( $s ) use ( $target ) {
+					return $s !== $target;
+				}
+			)
+		);
+		update_option( 'zsg_age_gate_slugs', $filtered );
+		$this->set_notice(
+			/* translators: %s: slug name. */
+			sprintf( __( 'Removed "%s" from age-gated slugs.', 'zillha-subscriber-gate' ), $target ),
+			'success'
+		);
 		$this->redirect_back();
 	}
 
