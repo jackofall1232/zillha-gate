@@ -11,7 +11,11 @@ defined( 'ABSPATH' ) || exit;
  * ZSG_Restrictor
  *
  * Redirects unauthenticated or insufficiently-privileged users
- * away from pages whose slug appears in the restricted list.
+ * away from gated pages. Supports two modes:
+ *   - allowlist: only listed slugs are gated (default)
+ *   - blocklist: all pages are gated except listed slugs and safety slugs
+ *
+ * Administrators and editors are never blocked by this class.
  */
 class ZSG_Restrictor {
 
@@ -32,14 +36,36 @@ class ZSG_Restrictor {
 			return;
 		}
 
+		// Non-negotiable bypass: administrators and editors are never blocked.
+		if ( is_user_logged_in() ) {
+			$current_user = wp_get_current_user();
+			if ( array_intersect( (array) $current_user->roles, array( 'administrator', 'editor' ) ) ) {
+				return;
+			}
+		}
+
 		$queried = get_queried_object();
 		if ( ! $queried || empty( $queried->post_name ) ) {
 			return;
 		}
 		$slug = $queried->post_name;
 
-		$restricted = (array) get_option( 'zsg_restricted_slugs', array() );
-		if ( ! in_array( $slug, $restricted, true ) ) {
+		$mode  = get_option( 'zsg_mode', 'allowlist' );
+		$slugs = (array) get_option( 'zsg_restricted_slugs', array() );
+
+		if ( 'blocklist' === $mode ) {
+			if ( in_array( $slug, $this->get_safety_slugs(), true ) ) {
+				return;
+			}
+			if ( in_array( $slug, $slugs, true ) ) {
+				return;
+			}
+			$restricted = true;
+		} else {
+			$restricted = in_array( $slug, $slugs, true );
+		}
+
+		if ( ! $restricted ) {
 			return;
 		}
 
@@ -48,12 +74,10 @@ class ZSG_Restrictor {
 			exit;
 		}
 
-		$user           = wp_get_current_user();
-		$user_roles     = (array) $user->roles;
-		$allowed_roles  = $this->get_allowed_roles();
-		$has_allowed    = array_intersect( $user_roles, $allowed_roles );
+		$user          = wp_get_current_user();
+		$allowed_roles = $this->get_allowed_roles();
 
-		if ( empty( $has_allowed ) ) {
+		if ( ! array_intersect( (array) $user->roles, $allowed_roles ) ) {
 			$redirect_url = get_option( 'zsg_redirect_url', home_url( '/subscribe/' ) );
 			wp_safe_redirect( esc_url_raw( $redirect_url ) );
 			exit;
@@ -63,9 +87,22 @@ class ZSG_Restrictor {
 	/**
 	 * Roles permitted to view restricted pages.
 	 *
+	 * Administrator and editor are listed for completeness; in practice they
+	 * return early via the bypass check in maybe_restrict().
+	 *
 	 * @return string[]
 	 */
 	private function get_allowed_roles() {
 		return array( 'subscriber', 'administrator', 'editor', 'author', 'contributor' );
+	}
+
+	/**
+	 * Slugs always allowed through in blocklist mode, to avoid redirect loops
+	 * and lockouts on login/register/subscribe/home flows.
+	 *
+	 * @return string[]
+	 */
+	private function get_safety_slugs() {
+		return array( 'login', 'register', 'subscribe', 'home' );
 	}
 }

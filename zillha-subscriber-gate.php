@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Zillha Subscriber Gate
  * Plugin URI:  https://zillha.com
- * Description: Restrict specific pages by slug to subscribers or higher. Manage restricted slugs from the admin panel.
- * Version:     1.0.0
+ * Description: Restrict WordPress pages by slug to subscribers or higher. Supports allowlist and blocklist modes from the admin panel.
+ * Version:     1.1.0
  * Author:      Joe (Zillha)
  * Author URI:  https://zillha.com
  * License:     GPL-2.0-or-later
@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'ZSG_VERSION', '1.0.0' );
+define( 'ZSG_VERSION', '1.1.0' );
 define( 'ZSG_PATH', plugin_dir_path( __FILE__ ) );
 define( 'ZSG_URL', plugin_dir_url( __FILE__ ) );
 
