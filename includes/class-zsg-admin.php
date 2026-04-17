@@ -77,16 +77,62 @@ class ZSG_Admin {
 
 		$slugs        = (array) get_option( 'zsg_restricted_slugs', array() );
 		$redirect_url = (string) get_option( 'zsg_redirect_url', home_url( '/subscribe/' ) );
-		$action_url   = admin_url( 'admin-post.php' );
+		$mode         = get_option( 'zsg_mode', 'allowlist' );
+		if ( ! in_array( $mode, array( 'allowlist', 'blocklist' ), true ) ) {
+			$mode = 'allowlist';
+		}
+		$is_blocklist     = ( 'blocklist' === $mode );
+		$slug_section_h2  = $is_blocklist
+			? __( 'Exception Slugs', 'zillha-subscriber-gate' )
+			: __( 'Restricted Slugs', 'zillha-subscriber-gate' );
+		$slug_empty_copy  = $is_blocklist
+			? __( 'No exception slugs. In blocklist mode, all pages are gated except the safety slugs (login, register, subscribe, home).', 'zillha-subscriber-gate' )
+			: __( 'No slugs are currently restricted.', 'zillha-subscriber-gate' );
+		$action_url       = admin_url( 'admin-post.php' );
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'Subscriber Gate', 'zillha-subscriber-gate' ); ?></h1>
 
 			<div class="zsg-section">
-				<h2><?php esc_html_e( 'Restricted Slugs', 'zillha-subscriber-gate' ); ?></h2>
+				<h2><?php esc_html_e( 'Mode', 'zillha-subscriber-gate' ); ?></h2>
+				<form method="post" action="<?php echo esc_url( $action_url ); ?>">
+					<input type="hidden" name="action" value="zsg_mode_save" />
+					<?php wp_nonce_field( 'zsg_mode_save_nonce', 'zsg_mode_save_nonce' ); ?>
+					<div class="zsg-mode-options">
+						<label>
+							<input type="radio" name="zsg_mode" value="allowlist" <?php checked( $mode, 'allowlist' ); ?> />
+							<strong><?php esc_html_e( 'Allowlist', 'zillha-subscriber-gate' ); ?></strong>
+							&mdash;
+							<?php esc_html_e( 'only listed slugs are restricted (everything else is public).', 'zillha-subscriber-gate' ); ?>
+						</label>
+						<label>
+							<input type="radio" name="zsg_mode" value="blocklist" <?php checked( $mode, 'blocklist' ); ?> />
+							<strong><?php esc_html_e( 'Blocklist', 'zillha-subscriber-gate' ); ?></strong>
+							&mdash;
+							<?php esc_html_e( 'all pages are restricted except listed slugs.', 'zillha-subscriber-gate' ); ?>
+						</label>
+					</div>
+					<p class="zsg-mode-help">
+						<?php
+						echo wp_kses(
+							__( 'In blocklist mode, the slugs <code>login</code>, <code>register</code>, <code>subscribe</code>, and <code>home</code> are always allowed through to prevent lockouts. Administrators and editors are never blocked in either mode.', 'zillha-subscriber-gate' ),
+							array( 'code' => array() )
+						);
+						?>
+					</p>
+					<p>
+						<button type="submit" class="button button-primary">
+							<?php esc_html_e( 'Save Mode', 'zillha-subscriber-gate' ); ?>
+						</button>
+					</p>
+				</form>
+			</div>
+
+			<div class="zsg-section">
+				<h2><?php echo esc_html( $slug_section_h2 ); ?></h2>
 
 				<?php if ( empty( $slugs ) ) : ?>
-					<p><em><?php esc_html_e( 'No slugs are currently restricted.', 'zillha-subscriber-gate' ); ?></em></p>
+					<p><em><?php echo esc_html( $slug_empty_copy ); ?></em></p>
 				<?php else : ?>
 					<table class="zsg-slug-list widefat striped">
 						<tbody>
@@ -123,10 +169,17 @@ class ZSG_Admin {
 					</button>
 					<p class="description">
 						<?php
-						echo wp_kses(
-							__( 'Enter the page slug exactly as it appears in the URL. Example: for <code>/worlds/darkwood/</code> enter <code>darkwood</code>.', 'zillha-subscriber-gate' ),
-							array( 'code' => array() )
-						);
+						if ( $is_blocklist ) {
+							echo wp_kses(
+								__( 'Slugs added here become exceptions that remain publicly accessible. Example: for <code>/worlds/darkwood/</code> enter <code>darkwood</code>.', 'zillha-subscriber-gate' ),
+								array( 'code' => array() )
+							);
+						} else {
+							echo wp_kses(
+								__( 'Enter the page slug exactly as it appears in the URL. Example: for <code>/worlds/darkwood/</code> enter <code>darkwood</code>.', 'zillha-subscriber-gate' ),
+								array( 'code' => array() )
+							);
+						}
 						?>
 					</p>
 				</form>
@@ -191,9 +244,40 @@ class ZSG_Admin {
 			case 'zsg_save_redirect':
 				$this->process_save_redirect();
 				break;
+			case 'zsg_mode_save':
+				$this->process_save_mode();
+				break;
 			default:
 				return;
 		}
+	}
+
+	/**
+	 * Save the operating mode option (allowlist or blocklist).
+	 *
+	 * @return void
+	 */
+	private function process_save_mode() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Insufficient permissions.', 'zillha-subscriber-gate' ) );
+		}
+		if ( ! isset( $_POST['zsg_mode_save_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['zsg_mode_save_nonce'] ) ), 'zsg_mode_save_nonce' ) ) {
+			wp_die( esc_html__( 'Security check failed.', 'zillha-subscriber-gate' ) );
+		}
+
+		$mode = isset( $_POST['zsg_mode'] ) ? sanitize_text_field( wp_unslash( $_POST['zsg_mode'] ) ) : 'allowlist';
+		if ( ! in_array( $mode, array( 'allowlist', 'blocklist' ), true ) ) {
+			$mode = 'allowlist';
+		}
+
+		update_option( 'zsg_mode', $mode );
+		$this->set_notice(
+			'blocklist' === $mode
+				? __( 'Mode saved: Blocklist. All pages are restricted except listed slugs.', 'zillha-subscriber-gate' )
+				: __( 'Mode saved: Allowlist. Only listed slugs are restricted.', 'zillha-subscriber-gate' ),
+			'success'
+		);
+		$this->redirect_back();
 	}
 
 	/**

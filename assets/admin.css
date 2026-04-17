@@ -1,3 +1,7 @@
+/* Mode section */
+.zsg-mode-options label { display: block; margin: 6px 0; }
+.zsg-mode-help { color: #646970; font-style: italic; margin-top: 8px; }
+
 /* Slug list table */
 .zsg-slug-list { margin-bottom: 20px; }
 .zsg-slug-list tr td { vertical-align: middle; padding: 6px 10px; }

@@ -4,21 +4,27 @@ Tags: subscriber, membership, page restriction, access control
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Restrict specific WordPress pages to subscribers or higher via a simple admin panel.
+Restrict WordPress pages to subscribers or higher. Supports allowlist and blocklist modes from a simple admin panel.
 
 == Description ==
 
-Zillha Subscriber Gate lets you restrict access to specific WordPress pages (by slug) to logged-in subscribers or higher. A lightweight admin panel under Settings > Subscriber Gate lets the site owner add and remove restricted slugs and configure a fallback redirect URL without touching code.
+Zillha Subscriber Gate lets you restrict access to WordPress pages (by slug) to logged-in subscribers or higher. A lightweight admin panel under Settings > Subscriber Gate lets the site owner manage the slug list, switch modes, and configure a fallback redirect URL without touching code.
+
+Modes:
+
+* **Allowlist** (default) — only listed slugs are restricted; everything else is public. Matches the 1.0.x behavior.
+* **Blocklist** — all pages are restricted except listed slugs. The safety slugs `login`, `register`, `subscribe`, and `home` are always allowed so the login flow cannot be accidentally locked out.
 
 Behavior:
 
 * Non-logged-in visitors hitting a restricted page are sent to the WordPress login screen and returned to the gated page after login.
 * Logged-in users whose role is not one of subscriber, contributor, author, editor, or administrator are redirected to a configurable URL (defaults to `/subscribe/`).
-* Non-restricted pages are unaffected.
+* Administrators and editors are never blocked by this plugin, regardless of mode or slug list.
+* Non-page content (posts, archives, home, 404) is never gated.
 
 The plugin uses the WordPress Options API only; no custom database tables are created.
 
@@ -39,6 +45,11 @@ The slug is the last segment of the URL before the trailing slash. For `https://
 Subscriber, Contributor, Author, Editor, and Administrator.
 
 == Changelog ==
+
+= 1.1.0 =
+* Added mode toggle: allowlist (restrict listed) or blocklist (restrict all except listed).
+* Auto-exclude login, register, subscribe, and home slugs in blocklist mode to prevent lockouts.
+* Administrators and editors are never blocked, regardless of mode or slug list.
 
 = 1.0.0 =
 * Initial release.
