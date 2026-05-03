@@ -86,18 +86,24 @@ class ZSG_Restrictor {
 	}
 
 	/**
-	 * Add noindex/nofollow directives via the wp_robots filter (WP 5.7+).
+	 * Set robots directives via the wp_robots filter (WP 5.7+).
 	 *
-	 * This covers rendered pages for logged-in users and integrates cleanly
-	 * with WordPress core and third-party SEO plugins.
+	 * Restricted pages get noindex/nofollow; all other rendered pages get
+	 * index/follow. This acts as a site-wide robots baseline since no SEO
+	 * plugin is installed.
 	 *
 	 * @param array $robots Associative array of robots directives.
 	 * @return array
 	 */
 	public function add_noindex_to_robots( $robots ) {
 		if ( $this->is_page_restricted() ) {
+			unset( $robots['index'], $robots['follow'] );
 			$robots['noindex']  = true;
 			$robots['nofollow'] = true;
+		} else {
+			unset( $robots['noindex'], $robots['nofollow'] );
+			$robots['index']  = true;
+			$robots['follow'] = true;
 		}
 		return $robots;
 	}
