@@ -20,10 +20,11 @@ defined( 'ABSPATH' ) || exit;
 class ZSG_Restrictor {
 
 	/**
-	 * Hook the restriction check into template_redirect.
+	 * Hook the restriction check into template_redirect and noindex output into wp_head.
 	 */
 	public function __construct() {
 		add_action( 'template_redirect', array( $this, 'maybe_restrict' ) );
+		add_action( 'wp_head', array( $this, 'maybe_output_noindex' ), 1 );
 	}
 
 	/**
@@ -32,10 +33,6 @@ class ZSG_Restrictor {
 	 * @return void
 	 */
 	public function maybe_restrict() {
-		if ( ! is_singular( 'page' ) ) {
-			return;
-		}
-
 		// Non-negotiable bypass: administrators and editors are never blocked.
 		if ( is_user_logged_in() ) {
 			$current_user = wp_get_current_user();
@@ -44,28 +41,7 @@ class ZSG_Restrictor {
 			}
 		}
 
-		$queried = get_queried_object();
-		if ( ! $queried || empty( $queried->post_name ) ) {
-			return;
-		}
-		$slug = $queried->post_name;
-
-		$mode  = get_option( 'zsg_mode', 'allowlist' );
-		$slugs = (array) get_option( 'zsg_restricted_slugs', array() );
-
-		if ( 'blocklist' === $mode ) {
-			if ( in_array( $slug, $this->get_safety_slugs(), true ) ) {
-				return;
-			}
-			if ( in_array( $slug, $slugs, true ) ) {
-				return;
-			}
-			$restricted = true;
-		} else {
-			$restricted = in_array( $slug, $slugs, true );
-		}
-
-		if ( ! $restricted ) {
+		if ( ! $this->is_page_restricted() ) {
 			return;
 		}
 
@@ -82,6 +58,53 @@ class ZSG_Restrictor {
 			wp_safe_redirect( esc_url_raw( $redirect_url ) );
 			exit;
 		}
+	}
+
+	/**
+	 * Output a noindex meta tag for restricted pages so search engines cannot
+	 * index gated content. Fires at priority 1 (early in <head>). Applies to
+	 * all visitors — Googlebot is never logged in.
+	 *
+	 * @return void
+	 */
+	public function maybe_output_noindex() {
+		if ( ! $this->is_page_restricted() ) {
+			return;
+		}
+		echo '<meta name="robots" content="noindex, nofollow">' . "\n";
+	}
+
+	/**
+	 * Determine whether the current page is subject to the subscriber gate,
+	 * independent of the current user's role.
+	 *
+	 * @return bool
+	 */
+	private function is_page_restricted() {
+		if ( ! is_singular( 'page' ) ) {
+			return false;
+		}
+
+		$queried = get_queried_object();
+		if ( ! $queried || empty( $queried->post_name ) ) {
+			return false;
+		}
+		$slug = $queried->post_name;
+
+		$mode  = get_option( 'zsg_mode', 'allowlist' );
+		$slugs = (array) get_option( 'zsg_restricted_slugs', array() );
+
+		if ( 'blocklist' === $mode ) {
+			if ( in_array( $slug, $this->get_safety_slugs(), true ) ) {
+				return false;
+			}
+			if ( in_array( $slug, $slugs, true ) ) {
+				return false;
+			}
+			return true;
+		}
+
+		return in_array( $slug, $slugs, true );
 	}
 
 	/**
