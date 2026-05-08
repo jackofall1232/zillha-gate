@@ -14,7 +14,7 @@ defined( 'ABSPATH' ) || exit;
  * modal assets. All cookie logic lives in age-gate.js; PHP's only role is
  * to gate the enqueue by option flags, page slug, and user capability.
  *
- * Administrators and editors bypass this check and never see the modal.
+ * Users with editing capabilities (contributors and above) bypass this check and never see the modal.
  */
 class ZSG_Age_Gate {
 
@@ -106,7 +106,7 @@ class ZSG_Age_Gate {
 	}
 
 	/**
-	 * Whether the current user is an administrator or editor.
+	 * Whether the current user has editing capabilities (contributor and above).
 	 *
 	 * Mirrors the bypass check in ZSG_Restrictor so the modal is never
 	 * enqueued for privileged users regardless of slug configuration.
@@ -114,10 +114,6 @@ class ZSG_Age_Gate {
 	 * @return bool
 	 */
 	private function is_privileged_user() {
-		if ( ! is_user_logged_in() ) {
-			return false;
-		}
-		$user = wp_get_current_user();
-		return (bool) array_intersect( (array) $user->roles, array( 'administrator', 'editor' ) );
+		return is_user_logged_in() && current_user_can( 'edit_posts' );
 	}
 }
