@@ -15,7 +15,7 @@ defined( 'ABSPATH' ) || exit;
  *   - allowlist: only listed slugs are gated (default)
  *   - blocklist: all pages are gated except listed slugs and safety slugs
  *
- * Administrators, editors, and contributors are never blocked by this class.
+ * Users with editing capabilities (contributors and above) are never blocked by this class.
  */
 class ZSG_Restrictor {
 
@@ -40,12 +40,9 @@ class ZSG_Restrictor {
 	 * @return void
 	 */
 	public function maybe_restrict() {
-		// Non-negotiable bypass: administrators, editors, and contributors are never blocked.
-		if ( is_user_logged_in() ) {
-			$current_user = wp_get_current_user();
-			if ( array_intersect( (array) $current_user->roles, array( 'administrator', 'editor', 'contributor' ) ) ) {
-				return;
-			}
+		// Non-negotiable bypass: users with editing capabilities are never blocked.
+		if ( is_user_logged_in() && current_user_can( 'edit_posts' ) ) {
+			return;
 		}
 
 		if ( ! $this->is_page_restricted() ) {
@@ -150,7 +147,7 @@ class ZSG_Restrictor {
 	/**
 	 * Roles permitted to view restricted pages.
 	 *
-	 * Administrator, editor, and contributor are listed for completeness; in practice
+	 * Roles with editing capabilities are listed for completeness; in practice
 	 * they return early via the bypass check in maybe_restrict().
 	 *
 	 * @return string[]
